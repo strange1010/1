@@ -1,0 +1,357 @@
+## 1
+import tensorflow as tf
+
+x=tf.constant([1,2,3,4,5,6],shape=[2,3])
+print("x:",x)
+
+y=tf.constant([7,8,9,10,11,12],shape=[3,2])
+print("y:",y)
+
+z=tf.matmul(x,y)
+print("Z:",z)
+
+matrix = tf.random.uniform([2,2],dtype=tf.float32)
+print("matrix A:\n{}".format(matrix))
+
+eigen_values,eigen_vectors=tf.linalg.eigh(matrix)
+print("Eigen vectors:\n{}\n\nEigen values:\n{}\n".format(eigen_vectors,eigen_values))
+
+########################################
+## 2. artificial neural network back propogation
+import numpy as np
+x=np.array(([2,9],[1,5],[3,6]),dtype=float)
+
+y=np.array(([92],[86],[89]),dtype=float)
+
+x=x/np.amax(x,axis=0)
+y=y/100
+print("x:\n",x)
+print("y:\n",y)
+
+class neuralNetwork():
+    def __init__(self):
+        self.input=2
+        self.output=1
+        self.hidden=3
+
+        self.w1=np.random.randn(self.input,self.hidden)
+        self.w2=np.random.randn(self.hidden,self.output)
+
+    def forward(self,x):
+        self.z=np.dot(x,self.w1)
+        self.z2=self.sigmoid(self.z)
+        self.z3=np.dot(self.z2,self.w2)
+        output=self.sigmoid(self.z3)
+        return output
+
+    def sigmoid(self,s,deriv=False):
+        if(deriv==True):
+            return s*(1-s)
+        return 1/(1+(np.exp(-s)))
+
+    def backword(self,x,y,output):
+        self.output=y-output
+        self.output_error_delta= output*self.sigmoid(output,deriv=True)
+
+        self.z2_error=self.output_error_delta*self.sigmoid(self.w2.T)
+        self.z2_error_delta=self.z2_error*self.sigmoid(self.z2,deriv=True)
+
+        self.w1+=x.T.dot(self.z2_error_delta)
+        self.w2+=self.z2.T.dot(self.output_error_delta)
+
+    def train(self,x,y):
+        output=self.forward(x)
+        self.backword(x,y,output)
+
+NN=neuralNetwork()
+for i in range(1000):
+    NN.train(x,y)
+
+
+print("input is:\n"+str(x))
+print("desire output is:\n"+str(y))
+print("loss is:\n"+str(np.mean(np.square(y-NN.forward(x)))))
+print("actual output:\n"+str(NN.forward(x)))
+
+##############################################
+## 3. deep neural network performing binary classification
+import pandas as pd
+df=pd.read_csv('winequality-red.csv')
+df.head(2)
+
+import numpy as np
+dataset=np.loadtxt('winequality-red.csv',delimiter=",",skiprows=1)
+np.random.shuffle(dataset)
+print(dataset)
+
+print(dataset[0:10,:])
+
+
+dataset[dataset[:,-1]<5.5,-1]=0
+dataset[dataset[:,-1]>5.5,-1]=1
+print(dataset[0:20,:])
+
+index_20percent = int(0.2*len(dataset[:,0]))
+print(index_20percent)
+
+xvalidation=dataset[:index_20percent,:-1]
+yvalidation=dataset[:index_20percent,-1]
+
+xtrain = dataset[index_20percent:,0:-1]
+ytrain = dataset[index_20percent:,-1]
+
+print("value of x trian",xtrain)
+print("value of y train",ytrain)
+print("xvalidation",xvalidation)
+print("yvalidaion",yvalidation)
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+
+model=Sequential()
+model.add(Dense(8,input_dim=len(xtrain[0,:]),activation='relu'))
+model.add(Dense(4,activation='relu'))
+model.add(Dense(1,activation='sigmoid'))
+print(model.summary)
+
+model.compile(loss='BinaryCrossentropy',optimizer='rmsprop',metrics=['accuracy'])
+
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+callback_a=ModelCheckpoint(filepath='my_best_model.hdf5',monitor='val_loss',sav_best_only=True)
+callback_b=EarlyStopping(monitor='val_loss',mode='min',patience=20,verbose=1)
+
+history=model.fit(xtrain,ytrain,validation_data=(xvalidation,yvalidation),epochs=256,batch_size=10,callbacks=[callback_a,callback_b])
+
+print(history.params)
+
+import matplotlib.pyplot as plt
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.ylabel('Accuracy')
+plt.xlabel('epoch')
+plt.legend(['training data','validation data'],loc='lower right')
+plt.show()
+
+score=model.evaluate(xtrain,ytrain)
+print('model name',model.metrics_names)
+print('score is',score[1]*100)
+
+score=model.evaluate(xvalidation,yvalidation)
+print(model.metrics_names)
+print(score[1]*100)
+
+print('xvalidation',xvalidation[0:5],"\n")
+print('yvalidation',yvalidation[0:5],"\n")
+prediction=model.predict(xvalidation)
+print('predicion',prediction,"\n")
+print('prediction in round',prediction.round(),"\n")
+
+plt.plot(yvalidation,prediction,'.')
+plt.xlabel('correct label')
+plt.ylabel('predic confidence score')
+plt.show()
+
+############################################
+## 4. Deep forward neural network with 2 hidden layers performing multiclassification
+
+import keras
+from keras.models import Sequential
+from keras.layers import Dense,Dropout,Activation
+from keras.optimizers import SGD
+
+import numpy as np
+x_train=np.random.random((1000,20))
+y_train=keras.utils.to_categorical(np.random.randint(10,size=(1000,1)),num_classes=10)
+
+x_test=np.random.random((100,20))
+y_test=keras.utils.to_categorical(np.random.randint(10,size=(100,1)),num_classes=10)
+
+x_train[50:51]
+
+y_train[50:51]
+
+x_test[0]
+
+y_test[0]
+
+model=Sequential()
+model.add(Dense(64,activation='relu',input_dim=20))
+model.add(Dropout(0.5))
+model.add(Dense(64,activation='relu',input_dim=20))
+model.add(Dropout(0.5))
+model.add(Dense(10,activation='softmax'))
+sgd=SGD(learning_rate=0.01,decay=1e-6,momentum=0.9,nesterov=True)
+
+model.compile(loss='categorical_crossentropy',optimizer=sgd,metrics=['accuracy'])
+
+model.fit(x_train,y_train,epochs=2000,batch_size=128)
+
+score=model.evaluate(x_test,y_test,batch_size=128,)
+score
+
+model.predict(x_train[50:51],batch_size=None,verbose=0,steps=None)
+
+###################################################
+## 5. k-fold, logitstic reg, support vector machine, random forest classifier
+
+from sklearn.datasets import load_digits
+import warnings
+
+digits=load_digits()
+
+x=digits.data
+y=digits.target
+
+from sklearn.model_selection import train_test_split
+x_train,x_test,y_train,y_test=train_test_split(x,y,test_size=0.30)
+
+from sklearn.linear_model import LogisticRegression
+logisticModel = LogisticRegression()
+logisticModel.fit(x_train,y_train)
+print("score is",logisticModel.score(x_test,y_test))
+print("\n\n\n------------------------")
+
+from sklearn.svm import SVC
+svm=SVC()
+svm.fit(x_train,y_train)
+print("score of Support vector machine",svm.score(x_test,y_test))
+
+from sklearn.ensemble import RandomForestClassifier
+randomforest=RandomForestClassifier()
+randomforest.fit(x_train,y_train)
+print("score of Random Forest classifier",randomforest.score(x_test,y_test))
+print("\n\n\n ------------------")
+
+from sklearn.model_selection import KFold
+kf=KFold(n_splits=3)
+kf
+
+for train_index,test_index in kf.split([1,2,3,4,5,6,7,8,9]):
+    print(train_index,test_index)
+
+def getscore(model,x_train,x_test,y_train,y_test):
+    model.fit(x_train,y_train)
+    return model.score(x_test,y_test)
+
+print("random forest",getscore(randomforest,x_train,x_test,y_train,y_test))
+print("logistic regression",getscore(logisticModel,x_train,x_test,y_train,y_test))
+print("Support vector machine",getscore(svm,x_train,x_test,y_train,y_test))
+print("\n\n")
+
+from sklearn.model_selection import StratifiedKFold
+folds=StratifiedKFold(n_splits=3)
+
+score_lr=[]
+score_svm=[]
+score_rf=[]
+
+for train_index,test_index in kf.split(digits.data):
+    x_train,x_test,y_train,y_test=digits.data[train_index],digits.data[test_index],digits.target[train_index],digits.target[test_index]
+    score_lr.append(getscore(LogisticRegression(),x_train,x_test,y_train,y_test))
+    score_svm.append(getscore(SVC(),x_train,x_test,y_train,y_test))
+    score_rf.append(getscore(RandomForestClassifier(),x_train,x_test,y_train,y_test))
+
+print("Logistic regression score",score_lr)
+print("Support vector machine",score_svm)
+print("Random forest score",score_rf)
+
+from sklearn.model_selection import cross_val_score
+
+print("cross_val_score of Logistic regression()",cross_val_score(LogisticRegression(),digits.data,digits.target))
+print("cross_val_score of Support vector matrix()",cross_val_score(SVC(),digits.data,digits.target))
+print("cross_val_score of random forest()",cross_val_score(RandomForestClassifier(),digits.data,digits.target))
+
+##########################################################
+##6. Denoising of image using autoencoders
+
+import numpy as np
+from keras.datasets import mnist
+
+(x_train,y_train),(x_test,y_test)=mnist.load_data()
+print(x_train.shape)
+
+import matplotlib.pyplot as plt
+fig,axes=plt.subplots(2,10,figsize=(16,2))
+count=0
+
+for i in range(2):
+    for j in range(10):
+        axes[i,j].imshow(x_train[count],cmap='gray')
+        count+=1
+
+x_train=x_train/255.0
+x_test=x_test/255.0
+
+nosie_factor=0.5
+x_train_noise=x_train+nosie_factor * np.random.normal(loc=0.,scale=1.,size=x_train.shape)
+x_test_noise=x_test+nosie_factor * np.random.normal(loc=0.,scale=1.,size=x_test.shape)
+
+print(x_train.shape)
+print(x_test.shape)
+
+import matplotlib.pyplot as plt
+fig,axes=plt.subplots(2,10,figsize=(16,2))
+count=0
+
+for i in range(2):
+    for j in range(10):
+        axes[i,j].imshow(x_train_noise[count],cmap='gray')
+        count+=1
+
+x_train=x_train.reshape(x_train.shape[0],28,28,1)
+x_test=x_test.reshape(x_test.shape[0],28,28,1)
+
+x_train_noise=x_train_noise.reshape(x_train_noise.shape[0],28,28,1)
+x_test_noise=x_test_noise.reshape(x_test_noise.shape[0],28,28,1)
+
+x_train.shape, x_train_noise.shape
+
+from keras.layers import Input,Conv2D,MaxPool2D,Dense,UpSampling2D,BatchNormalization
+from keras.callbacks import ModelCheckpoint
+
+encoder_input=Input(shape=x_train.shape[1:])
+x=Conv2D(32,(3,3),activation='relu',padding='same')(encoder_input)
+x=BatchNormalization()(x)
+x=MaxPool2D(pool_size=(2,2),padding='same')(x)
+x=Conv2D(32,(3,3),activation='relu',padding='same')(x)
+x=BatchNormalization()(x)
+encoded=MaxPool2D(pool_size=(2,2),padding='same')(x)
+
+#decoder
+x=Conv2D(32,(3,3),activation='relu',padding='same')(encoded)
+x=BatchNormalization()(x)
+x=UpSampling2D()(x)
+x=Conv2D(32,(3,3),activation='relu',padding='same')(x)
+x=BatchNormalization()(x)
+x=UpSampling2D()(x)
+decoded=Conv2D(1,(3,3),activation='sigmoid',padding='same')(x)
+
+from keras.models import Model
+autoencoder=Model(encoder_input,decoded,name="denoising_model")
+autoencoder.summary()
+
+autoencoder.compile(loss='binary_crossentropy',optimizer='adam')
+
+from keras.callbacks import ModelCheckpoint
+checkpoint=ModelCheckpoint("denoising_model.h5",save_best_only=True,save_weights_only=False,verbose=1)
+history=autoencoder.fit(x_train_noise,x_train,batch_size=128,epochs=5,callbacks=checkpoint,validation_split=0.25,verbose=2)
+
+from keras.models import load_model
+autoencoder = load_model('denoising_model.h5')
+autoencoder.summary()
+
+def visualize_data(data,row,column):
+    data=data.reshape(data.shape[0],28,28)
+    count=0
+    fig,axes = plt.subplots(row,column,figsize=(16,4))
+    for i in range(row):
+        for j in range(column):
+            axes[i,j].imshow(data[count])
+            count+=1
+
+visualize_data(x_test_noise[:20],2,10)
+
+pred=autoencoder.predict(x_test[:20])
+pred.shape
+
+visualize_data(pred,2,10)
